@@ -1,0 +1,5 @@
+{
+  "name": "TennisRank Edge",
+  "description": "A high-performance, edge-native tennis ranking system using Nuxt 3, Drizzle ORM, and Cloudflare D1.",
+  "requestFramePermissions": []
+}
