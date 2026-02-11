@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
   // 1. Auth Check (Simple shared secret/cookie check would go here)
   
   // 2. Parse Body
-  const body = await readBody(event);
+  const body = await readBody(event) as any;
   const db = useDb(event);
 
   // 3. Validation (Zod is recommended here in production)

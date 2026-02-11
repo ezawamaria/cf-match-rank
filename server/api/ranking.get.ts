@@ -1,7 +1,6 @@
-import { defineCachedEventHandler } from 'h3';
 import { useDb } from '~/server/utils/db';
 import { players, matches } from '~/shared/database/schema';
-import { desc, eq } from 'drizzle-orm';
+import { desc } from 'drizzle-orm';
 
 /**
  * FEATURE: Ranking

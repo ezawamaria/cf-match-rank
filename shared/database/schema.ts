@@ -14,7 +14,7 @@ export const players = sqliteTable('players', {
   // Storing groups as JSON string for simplicity in migration, 
   // but logically indexing names for search performance
   groups: text('groups', { mode: 'json' }).$type<string[]>().notNull(), 
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(Date.now()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(new Date()),
 }, (table) => ({
   nameIdx: index('name_idx').on(table.name),
 }));
@@ -27,7 +27,7 @@ export const matches = sqliteTable('matches', {
   p2Id: integer('p2_id').notNull().references(() => players.id),
   s1: integer('s1').notNull(),
   s2: integer('s2').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(Date.now()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(new Date()),
 }, (table) => ({
   groupIdx: index('group_idx').on(table.group),
   dateIdx: index('date_idx').on(table.date),
