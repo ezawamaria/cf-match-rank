@@ -2,11 +2,11 @@ import { defineEventHandler, readBody, createError } from 'h3';
 import { useDb } from '~/server/utils/db';
 import { matches } from '~/shared/database/schema';
 import { checkAuth } from '~/server/utils/auth';
-import { eq } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 export default defineEventHandler(async (event) => {
   checkAuth(event);
-  const body = await readBody<any>(event);
+  const body = await readBody(event) as any;
   const db = useDb(event);
 
   if (!body.group) throw createError({ statusCode: 400, statusMessage: "请选择组别" });
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
   try {
     if (body.id) {
         // Update
-        await db.update(matches).set(matchData).where(eq(matches.id, body.id));
+        await db.update(matches).set(matchData).where(sql`${matches.id} = ${body.id}`);
     } else {
         // Create
         await db.insert(matches).values(matchData);

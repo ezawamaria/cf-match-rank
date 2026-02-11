@@ -2,7 +2,7 @@ import { defineEventHandler, readBody, setCookie, createError } from 'h3';
 import { useRuntimeConfig } from '#imports';
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<any>(event);
+  const body = await readBody(event) as any;
   const config = useRuntimeConfig();
 
   if (body.password === config.adminPassword) {

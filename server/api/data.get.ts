@@ -1,7 +1,7 @@
 import { defineEventHandler } from 'h3';
 import { useDb } from '~/server/utils/db';
 import { players, matches, settings } from '~/shared/database/schema';
-import { desc, eq } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 export default defineEventHandler(async (event) => {
   const db = useDb(event);
@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   // Parallel Fetching
   const [allPlayers, allMatches, allSettings] = await Promise.all([
     db.select().from(players).all(),
-    db.select().from(matches).orderBy(desc(matches.date), desc(matches.id)).all(),
+    db.select().from(matches).orderBy(sql`${matches.date} desc`, sql`${matches.id} desc`).all(),
     db.select().from(settings).all()
   ]);
 

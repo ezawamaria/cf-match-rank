@@ -1,6 +1,6 @@
 import { useDb } from '~/server/utils/db';
 import { players, matches } from '~/shared/database/schema';
-import { desc } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { defineCachedEventHandler } from '#imports';
 
 /**
@@ -15,7 +15,7 @@ export default defineCachedEventHandler(async (event) => {
   // Parallel Fetching for minimal latency
   const [allPlayers, allMatches] = await Promise.all([
     db.select().from(players).all(),
-    db.select().from(matches).orderBy(desc(matches.date)).all()
+    db.select().from(matches).orderBy(sql`${matches.date} desc`).all()
   ]);
 
   // Business Logic: Calculate Standings (Moved to server for performance/caching)

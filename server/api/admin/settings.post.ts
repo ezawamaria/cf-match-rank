@@ -2,11 +2,11 @@ import { defineEventHandler, readBody, createError } from 'h3';
 import { useDb } from '~/server/utils/db';
 import { settings, players } from '~/shared/database/schema';
 import { checkAuth } from '~/server/utils/auth';
-import { eq } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 export default defineEventHandler(async (event) => {
   checkAuth(event);
-  const body = await readBody<any>(event);
+  const body = await readBody(event) as any;
   const db = useDb(event);
 
   if (body.type === 'config') {
@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
           for (const p of allPlayers) {
               if (p.groups.includes(groupName)) {
                   const newGroups = p.groups.filter(g => g !== groupName);
-                  await db.update(players).set({ groups: newGroups }).where(eq(players.id, p.id));
+                  await db.update(players).set({ groups: newGroups }).where(sql`${players.id} = ${p.id}`);
               }
           }
       }
