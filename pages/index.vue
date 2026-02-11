@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { format } from 'date-fns';
 const { show } = useToast();
 
 // Fetch all data raw
-const { data, refresh } = await useFetch('/api/data');
+const { data } = await useFetch('/api/data');
 
 // Client-side State
 const filterDate = ref('');
@@ -42,8 +41,8 @@ const standings = computed(() => {
     const groupName = m.group;
     if (!result[groupName]) return;
     
-    const p1 = result[groupName].find(p => p.id === m.p1Id);
-    const p2 = result[groupName].find(p => p.id === m.p2Id);
+    const p1 = result[groupName].find(p => p.id === m.p1_id);
+    const p2 = result[groupName].find(p => p.id === m.p2_id);
     
     if (p1 && p2) {
       p1.score += m.s1;
@@ -80,7 +79,7 @@ const applyFilter = () => {
 const resetFilter = () => {
   filterDate.value = '';
   displayDate.value = '';
-  show('已显示全部数据');
+  window.location.href = '/';
 };
 
 const bgStyle = computed(() => {
@@ -136,7 +135,7 @@ const bgStyle = computed(() => {
       </div>
 
       <!-- Grid -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
+      <div v-else class="rank-grid">
         <RankingLeaderboardCard 
           v-for="group in data.groups" 
           :key="group"
