@@ -29,7 +29,7 @@ const getRankBadge = (rank: number) => {
 
 <template>
   <div class="card overflow-hidden">
-    <div class="bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-600 p-5 border-b border-white/30">
+    <div class="bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-600 p-5 border-b-4 border-orange-600">
       <h2 class="text-white font-black text-2xl flex items-center gap-2 tracking-wide">🎾 {{ groupName }}</h2>
     </div>
 
