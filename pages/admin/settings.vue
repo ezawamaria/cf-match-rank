@@ -1,18 +1,48 @@
 <script setup lang="ts">
 // 本文件为页面交互逻辑，所有函数用途均使用中文注释。
+import { DEFAULT_RANKING_RULES, type RankingRule } from '~/shared/utils/ranking';
+
 const auth = useCookie('auth');
 const { data, refresh } = await useFetch('/api/data');
 const { show } = useToast();
 
 const form = reactive({ title: '', notice: '', background: '' });
+const rankingRules = ref<RankingRule[]>([...DEFAULT_RANKING_RULES]);
+
+const ruleMeta: Record<RankingRule, string> = {
+  score: '总积分',
+  wins: '胜场',
+  diff: '净胜分 diff',
+  headToHead: '交手记录',
+};
+
 /** 当远端设置变化时，同步到本地编辑表单。 */
 watchEffect(() => {
   if (data.value) {
     form.title = data.value.settings.title;
     form.notice = data.value.settings.notice;
     form.background = data.value.settings.background;
+    rankingRules.value = data.value.settings.rankingRules?.length
+      ? [...data.value.settings.rankingRules]
+      : [...DEFAULT_RANKING_RULES];
   }
 });
+
+/** 上移某个排序规则。 */
+const moveRuleUp = (index: number) => {
+  if (index === 0) return;
+  const next = [...rankingRules.value];
+  [next[index - 1], next[index]] = [next[index], next[index - 1]];
+  rankingRules.value = next;
+};
+
+/** 下移某个排序规则。 */
+const moveRuleDown = (index: number) => {
+  if (index === rankingRules.value.length - 1) return;
+  const next = [...rankingRules.value];
+  [next[index], next[index + 1]] = [next[index + 1], next[index]];
+  rankingRules.value = next;
+};
 
 // 保存全局设置。
 async function save() {
@@ -20,6 +50,8 @@ async function save() {
   fd.append('title', form.title);
   fd.append('notice', form.notice);
   fd.append('background', form.background);
+  fd.append('rankingRules', JSON.stringify(rankingRules.value));
+
   const resp = await fetch('/api/settings', { method: 'POST', body: fd });
   const text = await resp.text();
   if (resp.ok) {
@@ -46,6 +78,24 @@ async function save() {
         <div><label class="text-xs font-bold text-gray-400">网站标题</label><input v-model="form.title" type="text" class="w-full p-2 border rounded"></div>
         <div><label class="text-xs font-bold text-gray-400">滚动公告</label><input v-model="form.notice" type="text" class="w-full p-2 border rounded"></div>
         <div><label class="text-xs font-bold text-gray-400">背景图URL (可选)</label><input v-model="form.background" type="url" class="w-full p-2 border rounded"></div>
+
+        <div>
+          <label class="text-xs font-bold text-gray-400">排行榜规则（从上到下依次比较）</label>
+          <div class="mt-2 space-y-2">
+            <div
+              v-for="(rule, index) in rankingRules"
+              :key="rule"
+              class="flex items-center justify-between border rounded-lg px-3 py-2 bg-gray-50"
+            >
+              <div class="font-semibold text-gray-700">{{ index + 1 }}. {{ ruleMeta[rule] }}</div>
+              <div class="flex gap-2">
+                <button type="button" class="move-btn" :disabled="index === 0" @click="moveRuleUp(index)">上移</button>
+                <button type="button" class="move-btn" :disabled="index === rankingRules.length - 1" @click="moveRuleDown(index)">下移</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <button class="bg-gray-600 text-white py-2 rounded font-bold mt-2">保存全局设置</button>
       </form>
     </div>
@@ -55,4 +105,5 @@ async function save() {
 <style scoped>
 .btn-primary { @apply inline-flex items-center justify-center h-[44px] px-6 rounded-xl font-bold text-sm transition-all bg-[#fbbf24] text-[#78350f] shadow-[0_4px_0_#d97706] active:translate-y-[2px] active:shadow-[0_2px_0_#d97706]; }
 .card { @apply bg-white rounded-[20px] shadow-[0_8px_0_#d1d5db] border-2 border-[#f3f4f6]; }
+.move-btn { @apply px-3 py-1 rounded bg-white border text-sm font-semibold text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed; }
 </style>

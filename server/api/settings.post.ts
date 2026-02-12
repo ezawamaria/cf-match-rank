@@ -3,6 +3,7 @@ import { settings } from '~/shared/database/schema';
 import { checkAuth } from '~/server/utils/auth';
 import { useDb } from '~/server/utils/db';
 import { loadState } from '~/server/utils/state';
+import { DEFAULT_RANKING_RULES, type RankingRule } from '~/shared/utils/ranking';
 
 /**
  * 更新全局站点配置（标题、公告、背景图）。
@@ -11,11 +12,25 @@ export default defineEventHandler(async (event) => {
   checkAuth(event);
   const formData = await readFormData(event);
   const state = await loadState(event);
+  const rankingRulesInput = formData.get('rankingRules')?.toString();
+  let rankingRules: RankingRule[] = state.settings.rankingRules;
+
+  if (rankingRulesInput) {
+    try {
+      const parsedRules = JSON.parse(rankingRulesInput);
+      if (Array.isArray(parsedRules) && parsedRules.every((rule) => DEFAULT_RANKING_RULES.includes(rule))) {
+        rankingRules = parsedRules;
+      }
+    } catch {
+      rankingRules = state.settings.rankingRules;
+    }
+  }
 
   const nextSettings = {
     title: formData.get('title')?.toString().trim() || state.settings.title,
     notice: formData.get('notice')?.toString().trim() || state.settings.notice,
     background: formData.get('background')?.toString().trim() || state.settings.background,
+    rankingRules,
   };
 
   const db = useDb(event);

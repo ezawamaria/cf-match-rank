@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 本文件为页面交互逻辑，所有函数用途均使用中文注释。
 import { onBeforeUnmount, onMounted } from 'vue';
+import { buildStandings } from '~/shared/utils/ranking';
 
 const { show } = useToast();
 
@@ -16,64 +17,20 @@ const showGroupOptions = ref(false);
 const groupOptionMode = ref<'dropdown' | 'search'>('dropdown');
 const groupSelectorRef = ref<HTMLElement | null>(null);
 
-// 积分计算逻辑（从 Worker 迁移而来）
 /** 计算各组积分榜数据。 */
 const standings = computed(() => {
   if (!data.value) return {};
 
-  const rawMatches = data.value.matches;
-  const rawPlayers = data.value.players;
-  const rawGroups = data.value.groups;
-
-  // 先按日期过滤比赛
   const filteredMatches = filterDate.value
-    ? rawMatches.filter(m => m.date === filterDate.value)
-    : rawMatches;
+    ? data.value.matches.filter(m => m.date === filterDate.value)
+    : data.value.matches;
 
-  // 初始化各组积分容器
-  const result: Record<string, any[]> = {};
-  rawGroups.forEach(g => result[g] = []);
-
-  // 将球员映射到所属组别并初始化统计字段
-  rawPlayers.forEach(p => {
-    p.groups.forEach(g => {
-      if (!result[g]) result[g] = [];
-      result[g].push({
-        ...p,
-        score: 0, matches: 0, wins: 0, draws: 0, losses: 0
-      });
-    });
+  return buildStandings({
+    groups: data.value.groups,
+    players: data.value.players,
+    matches: filteredMatches,
+    rankingRules: data.value.settings.rankingRules,
   });
-
-  // 根据比赛结果累计积分与胜平负
-  filteredMatches.forEach(m => {
-    const groupName = m.group;
-    if (!result[groupName]) return;
-
-    const p1 = result[groupName].find(p => p.id === m.p1_id);
-    const p2 = result[groupName].find(p => p.id === m.p2_id);
-
-    if (p1 && p2) {
-      p1.score += m.s1;
-      p2.score += m.s2;
-      p1.matches += 1;
-      p2.matches += 1;
-
-      if (m.s1 > m.s2) p1.wins++;
-      else if (m.s1 < m.s2) p2.wins++;
-      else { p1.draws++; p2.draws++; }
-    }
-  });
-
-  // 排序规则：先比积分，再比胜场
-  Object.keys(result).forEach(g => {
-    result[g].forEach(p => {
-      p.losses = p.matches - p.wins - p.draws;
-    });
-    result[g].sort((a, b) => b.score - a.score || b.wins - a.wins);
-  });
-
-  return result;
 });
 
 const groupOptions = computed(() => data.value?.groups ?? []);
