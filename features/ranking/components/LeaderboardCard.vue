@@ -5,6 +5,7 @@ import type { PropType } from 'vue';
 interface PlayerStat {
   id: number;
   name: string;
+  rank: number;
   score: number;
   matches: number;
   wins: number;
@@ -16,6 +17,14 @@ defineProps({
   groupName: { type: String, required: true },
   players: { type: Array as PropType<PlayerStat[]>, required: true }
 });
+
+/** 根据名次返回奖牌表情。 */
+const getRankBadge = (rank: number) => {
+  if (rank === 1) return '🥇';
+  if (rank === 2) return '🥈';
+  if (rank === 3) return '🥉';
+  return '';
+};
 </script>
 
 <template>
@@ -26,19 +35,18 @@ defineProps({
 
     <div>
       <NuxtLink
-        v-for="(player, idx) in players"
+        v-for="player in players"
         :key="player.id"
         :to="`/player/${player.id}`"
         class="flex items-center justify-between px-4 py-4 border-b border-slate-100 hover:bg-sky-50/60 transition-all cursor-pointer no-underline"
       >
         <div class="flex items-center gap-3">
-          <div v-if="idx === 0" class="text-2xl">🥇</div>
-          <div v-else-if="idx === 1" class="text-2xl">🥈</div>
-          <div v-else-if="idx === 2" class="text-2xl">🥉</div>
-          <div v-else class="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-600">{{ idx + 1 }}</div>
+          <div v-if="getRankBadge(player.rank)" class="text-2xl">{{ getRankBadge(player.rank) }}</div>
+          <div v-else class="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-600">{{ player.rank }}</div>
           <div>
             <div class="font-bold text-lg text-slate-800">{{ player.name }}</div>
             <div class="text-sm font-bold text-slate-500">
+              第<span style="font-family: monospace;">{{ player.rank }}</span>名 ·
               <span style="font-family: monospace;">{{ player.matches }}</span>场比赛
               <span style="font-family: monospace; color: #16a34a;">{{ player.wins }}</span>胜
               <span style="font-family: monospace; color: #6b7280;">{{ player.draws }}</span>平
