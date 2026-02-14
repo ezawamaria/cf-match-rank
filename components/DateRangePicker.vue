@@ -20,6 +20,7 @@ interface FlatpickrInstance {
   setDate: (dates: string[] | Date[], triggerChange?: boolean, format?: string) => void;
   clear: (emitChangeEvent?: boolean, toInitial?: boolean) => void;
   formatDate: (dateObj: Date, frmt: string) => string;
+  close: () => void;
   destroy: () => void;
 }
 
@@ -33,6 +34,7 @@ const ASSET_TIMEOUT_MS = 10000;
 
 const inputRef = ref<HTMLInputElement | null>(null);
 let picker: FlatpickrInstance | null = null;
+let removeDayDoubleClickListener: (() => void) | null = null;
 
 const isValidYmd = (value: string) => {
   if (!DATE_RE.test(value)) return false;
@@ -142,6 +144,33 @@ const applyModelToPicker = () => {
   picker.setDate(nextDates, false, 'Y-m-d');
 };
 
+const bindDayDoubleClick = () => {
+  if (!picker?.calendarContainer) return;
+
+  removeDayDoubleClickListener?.();
+
+  const handleDayDoubleClick = (event: MouseEvent) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const dayElement = target.closest('.flatpickr-day');
+    if (!(dayElement instanceof HTMLElement)) return;
+    if (dayElement.classList.contains('flatpickr-disabled')) return;
+
+    const dayDate = (dayElement as HTMLElement & { dateObj?: Date }).dateObj;
+    if (!(dayDate instanceof Date) || !Number.isFinite(dayDate.getTime()) || !picker) return;
+
+    const ymd = picker.formatDate(dayDate, 'Y-m-d');
+    picker.setDate([ymd, ymd], true, 'Y-m-d');
+    picker.close();
+  };
+
+  picker.calendarContainer.addEventListener('dblclick', handleDayDoubleClick);
+  removeDayDoubleClickListener = () => {
+    picker?.calendarContainer?.removeEventListener('dblclick', handleDayDoubleClick);
+  };
+};
+
 onMounted(async () => {
   if (!inputRef.value) return;
 
@@ -164,9 +193,20 @@ onMounted(async () => {
       }
 
       const startDate = picker?.formatDate(validDates[0], 'Y-m-d') || '';
-      const endDate = picker?.formatDate(validDates[1] || validDates[0], 'Y-m-d') || '';
+      const endDate = validDates[1]
+        ? picker?.formatDate(validDates[1], 'Y-m-d') || ''
+        : '';
       emit('update:startDate', startDate);
       emit('update:endDate', endDate);
+    },
+    onReady: () => {
+      bindDayDoubleClick();
+    },
+    onMonthChange: () => {
+      bindDayDoubleClick();
+    },
+    onYearChange: () => {
+      bindDayDoubleClick();
     },
   });
 
@@ -178,6 +218,8 @@ watch(() => [props.startDate, props.endDate], () => {
 });
 
 onBeforeUnmount(() => {
+  removeDayDoubleClickListener?.();
+  removeDayDoubleClickListener = null;
   picker?.destroy();
   picker = null;
 });
