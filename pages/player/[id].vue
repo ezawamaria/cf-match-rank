@@ -69,8 +69,14 @@ const getOpponentName = (m: any) => {
           <span class="text-xs text-gray-400">显示 {{ matches.length }} 场</span>
         </div>
         <div class="flex flex-wrap gap-2">
-          <input v-model="filterStartDate" type="date" class="bg-white border rounded p-2 text-sm flex-1 min-w-[120px]">
-          <input v-model="filterEndDate" type="date" class="bg-white border rounded p-2 text-sm flex-1 min-w-[120px]">
+          <DateRangePicker
+            :start-date="filterStartDate"
+            :end-date="filterEndDate"
+            input-class="bg-white border rounded p-2 text-sm flex-1 min-w-[240px] h-[42px]"
+            placeholder="开始日期 至 结束日期"
+            @update:start-date="filterStartDate = $event"
+            @update:end-date="filterEndDate = $event"
+          />
           <input v-model="filterOpponent" type="text" placeholder="搜对手名..." class="bg-white border rounded p-2 text-sm flex-1 min-w-[120px]">
         </div>
       </div>
