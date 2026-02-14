@@ -156,8 +156,14 @@ async function importRecords(event: Event) {
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
         <h2 class="font-bold text-xl">📊 比赛记录</h2>
         <div class="flex flex-wrap gap-2">
-          <input v-model="filters.startDate" type="date" class="border rounded p-2 text-sm" title="开始日期">
-          <input v-model="filters.endDate" type="date" class="border rounded p-2 text-sm" title="结束日期">
+          <DateRangePicker
+            :start-date="filters.startDate"
+            :end-date="filters.endDate"
+            input-class="border rounded p-2 text-sm h-[44px] w-[240px]"
+            placeholder="开始日期 至 结束日期"
+            @update:start-date="filters.startDate = $event"
+            @update:end-date="filters.endDate = $event"
+          />
           <input v-model="filters.player" type="text" placeholder="查询球员..." class="border rounded p-2 text-sm w-32">
           <button class="btn-danger text-sm" @click="deleteFilteredMatches">删除比赛</button>
           <a href="/api/match/export" target="_blank" class="btn-success text-sm no-underline">📥 导出CSV</a>

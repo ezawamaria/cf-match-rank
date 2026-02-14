@@ -212,19 +212,14 @@ const bgStyle = computed(() => {
 
         <div class="controls-row">
           <div class="date-row">
-            <div class="field-input date-range-control">
-              <input
-                v-model="filterStartDate"
-                type="date"
-                class="range-date-input"
-              >
-              <span class="text-slate-400 text-xs">至</span>
-              <input
-                v-model="filterEndDate"
-                type="date"
-                class="range-date-input"
-              >
-            </div>
+            <DateRangePicker
+              :start-date="filterStartDate"
+              :end-date="filterEndDate"
+              input-class="field-input date-range-control"
+              placeholder="选择日期范围"
+              @update:start-date="filterStartDate = $event"
+              @update:end-date="filterEndDate = $event"
+            />
           </div>
 
           <div class="filter-input-row">
@@ -340,16 +335,10 @@ const bgStyle = computed(() => {
 }
 
 .date-range-control {
-  @apply flex items-center justify-center gap-2 px-2;
   width: 242px;
   min-width: 242px;
   max-width: 242px;
   inline-size: 242px;
-}
-
-.range-date-input {
-  @apply bg-transparent text-sm outline-none;
-  width: 96px;
 }
 
 .score-viewer-card {
