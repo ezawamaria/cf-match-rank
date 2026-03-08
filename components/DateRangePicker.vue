@@ -1,4 +1,5 @@
 <script setup lang="ts">
+
 const props = withDefaults(defineProps<{
   startDate: string;
   endDate: string;
@@ -31,6 +32,18 @@ type FlatpickrFn = (
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ASSET_TIMEOUT_MS = 10000;
+const FLATPICKR_SCRIPT_CANDIDATES = [
+  'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js',
+  'https://unpkg.com/flatpickr/dist/flatpickr.min.js',
+];
+const FLATPICKR_STYLE_CANDIDATES = [
+  'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
+  'https://unpkg.com/flatpickr/dist/flatpickr.min.css',
+];
+const FLATPICKR_LOCALE_ZH_CANDIDATES = [
+  'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js',
+  'https://unpkg.com/flatpickr/dist/l10n/zh.js',
+];
 
 const inputRef = ref<HTMLInputElement | null>(null);
 const pickerReady = ref(false);
@@ -39,6 +52,35 @@ let removeDayDoubleClickListener: (() => void) | null = null;
 let removeClearButtonListener: (() => void) | null = null;
 let panelBindFrameId: number | null = null;
 let selectionTipElement: HTMLSpanElement | null = null;
+let flatpickrLocaleEnabled = false;
+
+const normalizeManualRangeInput = (value: string) => {
+  const normalized = value
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/至|~|—|–/g, 'to')
+    .replace(/,/g, 'to');
+
+  if (!normalized) return ['', ''] as const;
+
+  const matchedDates = normalized.match(/\d{4}-\d{2}-\d{2}/g) || [];
+  if (matchedDates.length === 1) {
+    const [date] = matchedDates;
+    if (!isValidYmd(date)) return ['', ''] as const;
+    return [date, ''] as const;
+  }
+
+  if (matchedDates.length >= 2) {
+    const startDate = matchedDates[0];
+    const endDate = matchedDates[1];
+    if (!isValidYmd(startDate) || !isValidYmd(endDate)) return ['', ''] as const;
+    return endDate < startDate
+      ? [endDate, startDate] as const
+      : [startDate, endDate] as const;
+  }
+
+  return ['', ''] as const;
+};
 
 const START_DATE_TIP = '请选择开始日期';
 const END_DATE_TIP = '请选择结束日期';
@@ -64,82 +106,130 @@ const getModelDates = () => {
   return [startDate, endDate] as const;
 };
 
-const withTimeout = (promise: Promise<void>, label: string) => {
-  return Promise.race([
-    promise,
-    new Promise<void>((_, reject) => {
-      setTimeout(() => reject(new Error(`${label} 加载超时`)), ASSET_TIMEOUT_MS);
-    }),
-  ]);
-};
+const withTimeout = (promise: Promise<void>, label: string) => Promise.race([
+  promise,
+  new Promise<void>((_, reject) => {
+    setTimeout(() => reject(new Error(`${label} 加载超时`)), ASSET_TIMEOUT_MS);
+  }),
+]);
 
-const ensureStyle = () => {
-  if (document.querySelector('link[data-flatpickr-css="true"]')) return;
-
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css';
-  link.dataset.flatpickrCss = 'true';
-  document.head.appendChild(link);
-};
-
-const loadScript = async (selector: string, src: string, datasetKey: string) => {
+const loadScriptFromCandidates = async (selector: string, sources: string[], datasetKey: string) => {
   const existingScript = document.querySelector<HTMLScriptElement>(selector);
   if (existingScript) {
-    if (existingScript.dataset.loaded === 'true') return;
+    if (existingScript.dataset.loaded === 'true') return true;
 
     await withTimeout(new Promise<void>((resolve, reject) => {
       existingScript.addEventListener('load', () => resolve(), { once: true });
-      existingScript.addEventListener('error', () => reject(new Error(`${src} 加载失败`)), { once: true });
-    }), src);
-    return;
+      existingScript.addEventListener('error', () => reject(new Error(`${existingScript.src} 加载失败`)), { once: true });
+    }), existingScript.src);
+    return true;
   }
 
-  await withTimeout(new Promise<void>((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = src;
-    script.async = true;
-    script.dataset[datasetKey] = 'true';
-    script.addEventListener('load', () => {
-      script.dataset.loaded = 'true';
-      resolve();
-    }, { once: true });
-    script.addEventListener('error', () => reject(new Error(`${src} 加载失败`)), { once: true });
-    document.head.appendChild(script);
-  }), src);
+  for (const src of sources) {
+    try {
+      await withTimeout(new Promise<void>((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.dataset[datasetKey] = 'true';
+        script.addEventListener('load', () => {
+          script.dataset.loaded = 'true';
+          resolve();
+        }, { once: true });
+        script.addEventListener('error', () => {
+          script.remove();
+          reject(new Error(`${src} 加载失败`));
+        }, { once: true });
+        document.head.appendChild(script);
+      }), src);
+      return true;
+    } catch (error) {
+      console.warn(`[DateRangePicker] ${src} 加载失败，尝试下一资源源。`, error);
+    }
+  }
+
+  return false;
+};
+
+const ensureStyle = async () => {
+  if (document.querySelector('link[data-flatpickr-css="true"]')) return true;
+
+  for (const href of FLATPICKR_STYLE_CANDIDATES) {
+    try {
+      await withTimeout(new Promise<void>((resolve, reject) => {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.dataset.flatpickrCss = 'true';
+        link.addEventListener('load', () => resolve(), { once: true });
+        link.addEventListener('error', () => {
+          link.remove();
+          reject(new Error(`${href} 加载失败`));
+        }, { once: true });
+        document.head.appendChild(link);
+      }), href);
+      return true;
+    } catch (error) {
+      console.warn(`[DateRangePicker] ${href} 加载失败，尝试下一样式源。`, error);
+    }
+  }
+
+  return false;
 };
 
 const ensureFlatpickrAssets = async () => {
   if (!import.meta.client) return false;
 
-  ensureStyle();
+  const cssReady = await ensureStyle();
+  if (!cssReady) {
+    console.warn('[DateRangePicker] flatpickr 样式资源加载失败。');
+  }
 
-  const win = window as typeof window & {
-    flatpickr?: FlatpickrFn & { l10ns?: { zh?: unknown } };
-  };
-
-  try {
-    if (!win.flatpickr) {
-      await loadScript('script[data-flatpickr-core="true"]', 'https://cdn.jsdelivr.net/npm/flatpickr', 'flatpickrCore');
-    }
-
-    if (!win.flatpickr) {
-      throw new Error('flatpickr 核心未就绪');
-    }
-
-    if (!win.flatpickr?.l10ns?.zh) {
-      try {
-        await loadScript('script[data-flatpickr-locale-zh="true"]', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js', 'flatpickrLocaleZh');
-      } catch (error) {
-        console.warn('[DateRangePicker] zh 语言包加载失败，将回退默认语言。', error);
-      }
-    }
-
-    return true;
-  } catch (error) {
-    console.error('[DateRangePicker] flatpickr 资源加载失败，将回退为只读文本输入。', error);
+  const coreReady = await loadScriptFromCandidates(
+    'script[data-flatpickr-core="true"]',
+    FLATPICKR_SCRIPT_CANDIDATES,
+    'flatpickrCore',
+  );
+  if (!coreReady) {
+    console.error('[DateRangePicker] flatpickr 核心脚本加载失败，将回退为手动输入模式。');
     return false;
   }
+
+  const win = window as typeof window & { flatpickr?: FlatpickrFn & { l10ns?: { zh?: unknown } } };
+  if (!win.flatpickr) {
+    console.error('[DateRangePicker] flatpickr 全局对象未就绪，将回退为手动输入模式。');
+    return false;
+  }
+
+  flatpickrLocaleEnabled = false;
+  const localeReady = await loadScriptFromCandidates(
+    'script[data-flatpickr-locale-zh="true"]',
+    FLATPICKR_LOCALE_ZH_CANDIDATES,
+    'flatpickrLocaleZh',
+  );
+  if (localeReady && win.flatpickr.l10ns?.zh) {
+    flatpickrLocaleEnabled = true;
+  }
+
+  return true;
+};
+
+const getDisplayText = () => {
+  const [startDate, endDate] = getModelDates();
+  if (!startDate && !endDate) return '';
+  if (startDate && !endDate) return startDate;
+  return `${startDate} 至 ${endDate}`;
+};
+
+const syncFromManualInput = (event: Event) => {
+  if (pickerReady.value) return;
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) return;
+
+  const [startDate, endDate] = normalizeManualRangeInput(target.value);
+  emit('update:startDate', startDate);
+  emit('update:endDate', endDate);
+  target.value = startDate && endDate ? `${startDate} 至 ${endDate}` : startDate;
 };
 
 const applyModelToPicker = () => {
@@ -277,7 +367,7 @@ onMounted(async () => {
     clickOpens: true,
     appendTo: document.body,
     positionElement: inputRef.value,
-    locale: ((window as any).flatpickr?.l10ns?.zh ? 'zh' : undefined),
+    locale: flatpickrLocaleEnabled ? 'zh' : undefined,
     onChange: (selectedDates: Date[]) => {
       const validDates = selectedDates.filter((date) => Number.isFinite(date.getTime()));
       if (validDates.length === 0) {
@@ -339,8 +429,10 @@ onBeforeUnmount(() => {
     ref="inputRef"
     type="text"
     :placeholder="placeholder"
+    :value="getDisplayText()"
     :class="inputClass"
-    readonly
+    :readonly="pickerReady"
+    @change="syncFromManualInput"
   >
 </template>
 
